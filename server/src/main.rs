@@ -3,7 +3,14 @@ extern crate rocket;
 #[macro_use]
 extern crate diesel;
 use diesel::{ prelude::*, table, Insertable, Queryable };
-use rocket::{ fairing::AdHoc, serde::json::Json, State };
+use rocket::{
+    fairing::{ Fairing, Info, Kind, AdHoc },
+    http::Header,
+    serde::json::Json,
+    State,
+    Request,
+    Response,
+};
 use rocket_sync_db_pools::database;
 use serde::{ Deserialize, Serialize };
 
@@ -65,12 +72,10 @@ async fn create_task(connection: Db, task: Json<Task>) -> Json<Task> {
         .expect("boo")
 }
 
-#[delete("/id")]
+#[get("/delete/<id>")]
 async fn delete_task(connection: Db, id: i32) -> Json<Task> {
     connection
-        .run(move |c| {
-            diesel::delete(tasks::table.filter(tasks::id.eq(id))).execute(c);
-        }).await
+        .run(move |c| { diesel::delete(tasks::table.filter(tasks::id.eq(id))).get_result(c) }).await
         .map(Json)
         .expect("boo")
 }
@@ -93,11 +98,40 @@ fn rocket() -> _ {
     let rocket = rocket::build();
 
     rocket
+        .attach(Cors)
         .attach(Db::fairing())
         .attach(AdHoc::config::<Config>())
-        .mount("/", routes![index, custom])
+        .mount("/", routes![index, all_options, custom])
         .mount(
             "/tasks",
             routes![get_random_task, get_task, get_all_tasks, create_task, delete_task]
         )
+}
+
+// Catches all OPTION requests in order to get the CORS related Fairing triggered.
+#[options("/<_..>")]
+fn all_options() {/* Intentionally left empty */}
+
+pub struct Cors;
+
+#[rocket::async_trait]
+impl Fairing for Cors {
+    fn info(&self) -> Info {
+        Info {
+            name: "Cross-Origin-Resource-Sharing Fairing",
+            kind: Kind::Response,
+        }
+    }
+
+    async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
+        response.set_header(
+            Header::new(
+                "Access-Control-Allow-Methods",
+                "POST, PATCH, PUT, DELETE, HEAD, OPTIONS, GET"
+            )
+        );
+        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
+        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+    }
 }

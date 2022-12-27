@@ -2,7 +2,7 @@ import { RxDragHandleHorizontal } from "react-icons/rx";
 import { IoIosCloseCircleOutline } from "react-icons/io";
 import { type TaskProps } from "../types";
 
-export default function Task({ name, completed }: TaskProps) {
+export default function Task({ id, name, completed, deleteTask }: TaskProps) {
   return (
     <>
       <div
@@ -10,10 +10,13 @@ export default function Task({ name, completed }: TaskProps) {
         draggable
       >
         <span className="flex content-center">
-          <RxDragHandleHorizontal className="mt-auto mb-auto"/>
+          <RxDragHandleHorizontal className="mt-auto mb-auto" />
         </span>
         <span className="grow pl-3 py-2">{name}</span>
-        <button className="p-2 hover:text-red-500">
+        <button
+          className="p-2 hover:text-red-500"
+          onClick={(e) => deleteTask(id)}
+        >
           <IoIosCloseCircleOutline />
         </button>
       </div>
